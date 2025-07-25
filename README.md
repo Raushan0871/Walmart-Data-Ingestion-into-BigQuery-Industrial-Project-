@@ -100,6 +100,9 @@ Each table is defined with appropriate schema fields, data types, and update str
 - **Retries**: 1 retry on failure.
 - **Catchup**: Disabled (`catchup=False`) to prevent historical reprocessing unless required.
 
+![alt text](image.png)
+
+
 ---
 
 ## ✅ Steps to Run the Pipeline
