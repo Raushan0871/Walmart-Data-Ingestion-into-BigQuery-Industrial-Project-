@@ -68,6 +68,8 @@ gs://walmart-ingestions/walmart-merchant/*.json
 ## 🧱 BigQuery Dataset & Tables
 
 - **Dataset**: `walmart_dwh`
+   Dataset with Table
+   ![alt text](image-4.png)
 
 - **Tables**:
   - `merchants_tb` – Merchant dimension table.
@@ -75,6 +77,15 @@ gs://walmart-ingestions/walmart-merchant/*.json
   - `walmart_sales_tgt` – Final fact table used for analytics and reporting.
 
 Each table is defined with appropriate schema fields, data types, and update strategies.
+
+**Merchant Table**
+![alt text](image-1.png)
+
+**Walmart sales data**
+![alt text](image-2.png)
+
+**Target Table**
+![alt text](image-3.png)
 
 ---
 
