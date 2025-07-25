@@ -1,108 +1,145 @@
-Walmart Sales Data Ingestion into BigQuery (Industrial Project)
-This project demonstrates a real-time ETL pipeline using Apache Airflow to ingest Walmart sales data from Google Cloud Storage (GCS) into Google BigQuery. The pipeline handles data ingestion, staging, transformation, and loading into a target fact table using a MERGE operation.
 
-🛠️ Tech Stack
-Python
+# 🛒 Walmart Sales ETL Pipeline using Apache Airflow & BigQuery
 
-Apache Airflow
+## 📌 Project Overview
 
-Google Cloud Storage (GCS)
+This project showcases a real-world **ETL (Extract, Transform, Load)** pipeline for processing **Walmart sales data** using **Google Cloud Platform (GCP)** services and **Apache Airflow** as the orchestration engine. 
 
-Google BigQuery
+The goal is to automate the data ingestion process from **Google Cloud Storage (GCS)** to **BigQuery**, transform it by joining with dimension tables, and upsert it into a well-structured target table to support analytics and reporting use cases.
 
-BigQuery Operators & GCSToBigQueryOperator
+---
 
-🧩 Pipeline Architecture
-pgsql
-Copy
-Edit
-GCS (Raw JSON Files)
-     ↓
-Airflow DAG
-     ↓
-BigQuery (Staging & Dim Tables)
-     ↓
-BigQuery MERGE (Upsert into Fact Table)
-📁 Folder Structure
-bash
-Copy
-Edit
-.
+## 🚀 Objective
+
+The primary goals of this project are:
+
+- **Automated Data Ingestion:** Load raw JSON files from a GCS bucket into BigQuery.
+- **Table Management:** Dynamically create required BigQuery tables for staging, dimension, and target data.
+- **Data Transformation:** Perform a left join between staging sales data and merchant dimension table.
+- **Fact Table Maintenance:** Use `MERGE` query to upsert data into the target fact table to prevent duplication and maintain consistency.
+- **Workflow Orchestration:** Use Airflow to manage and schedule these tasks as part of a repeatable pipeline.
+
+---
+
+## 🛠️ Tech Stack
+
+| Technology        | Description |
+|-------------------|-------------|
+| **Python**        | Used to write DAGs and configure operators in Airflow |
+| **Apache Airflow**| Used to orchestrate and schedule data workflows |
+| **Google Cloud Storage (GCS)** | Acts as the raw data source (input layer) |
+| **BigQuery**      | Cloud Data Warehouse used to store and query structured data |
+| **BigQuery Operators** | Provided by Airflow to interact with BigQuery |
+| **GCSToBigQueryOperator** | Specialized operator to load GCS data directly into BigQuery |
+
+---
+
+## 📂 Project Structure
+
+```
+walmart_sales_etl/
+│
 ├── dags/
-│   └── walmart_sales_etl_gcs.py        # Main Airflow DAG script
+│   └── walmart_sales_etl_dag.py         # Airflow DAG definition
 ├── data/
-│   ├── walmart-merchant/*.json         # Merchant data in JSON format
-│   └── walmart-sales/*.json            # Sales data in JSON format
-└── README.md                           # Project documentation
-🚀 DAG Workflow Breakdown
-Create BigQuery Dataset
+│   ├── walmart-sales/                   # Contains raw sales JSON files
+│   └── walmart-merchant/                # Contains raw merchant JSON files
+├── README.md                            # Project documentation
+```
 
-Creates walmart_dwh dataset in BigQuery if it doesn't exist.
+---
 
-Create Tables
+## 📦 GCS Bucket Layout
 
-merchants_tb (dimension table)
+The data is stored in two folders in a Google Cloud Storage bucket:
 
-walmart_sales_stage (staging table)
+- `walmart-sales/` – Contains transactional sales data as JSON files.
+- `walmart-merchant/` – Contains merchant metadata (merchant_id, name, etc.) as JSON files.
 
-walmart_sales_tgt (target fact table)
+Example paths:
 
-Ingest Data from GCS to BigQuery
+```
+gs://walmart-ingestions/walmart-sales/*.json
+gs://walmart-ingestions/walmart-merchant/*.json
+```
 
-Uses GCSToBigQueryOperator to load merchant and sales data from GCS into their respective tables.
+---
 
-Upsert into Fact Table
+## 🧱 BigQuery Dataset & Tables
 
-Uses BigQueryInsertJobOperator to run a MERGE query to update or insert records from staging into the target table.
+- **Dataset**: `walmart_dwh`
 
-💡 Key Features
-Dynamic creation of datasets and tables using Airflow operators
+- **Tables**:
+  - `merchants_tb` – Merchant dimension table.
+  - `walmart_sales_stage` – Raw sales data staging table.
+  - `walmart_sales_tgt` – Final fact table used for analytics and reporting.
 
-Parallel loading of dimension and staging data
+Each table is defined with appropriate schema fields, data types, and update strategies.
 
-Efficient upsert logic using BigQuery MERGE
+---
 
-Modular and production-ready DAG design
+## 🪜 Airflow DAG Workflow
 
-🔁 Schedule
-DAG Interval: Runs daily (@daily)
+1. **Create Dataset**
+   - A BigQuery dataset named `walmart_dwh` is created if it doesn't exist.
 
-Catchup: Disabled (to avoid backfills)
+2. **Create Tables**
+   - Three tables are created in BigQuery using `BigQueryCreateEmptyTableOperator`.
 
-📌 Notes
-GCS bucket name: walmart-ingestions
+3. **Load Data from GCS**
+   - Load merchant and sales JSON data into respective staging tables using `GCSToBigQueryOperator`.
 
-Data format: NEWLINE_DELIMITED_JSON
+4. **Merge Stage to Target**
+   - Execute a `MERGE` SQL query using `BigQueryInsertJobOperator` to upsert sales data into the final target table by joining with the merchant dimension table.
 
-GCP Project: grounded-region-463501-n1
+---
 
-Dataset: walmart_dwh
+## 🔁 Schedule & Retry Configuration
 
-✅ Prerequisites
-GCP Project with access to BigQuery and GCS
+- **Schedule**: Runs **daily** using `@daily` cron expression.
+- **Retries**: 1 retry on failure.
+- **Catchup**: Disabled (`catchup=False`) to prevent historical reprocessing unless required.
 
-Airflow environment with apache-airflow-providers-google installed
+---
 
-Service account with proper IAM permissions
+## ✅ Steps to Run the Pipeline
 
-🧪 Sample Airflow Command to Trigger DAG
-bash
-Copy
-Edit
-airflow dags trigger walmart_sales_etl_gcs
-📷 Visualization
-You can visualize the DAG and monitor task status through the Airflow web UI:
+1. Make sure you have a **Google Cloud project** with **BigQuery** and **Cloud Storage** enabled.
+2. Upload JSON data to the appropriate folders in your GCS bucket.
+3. Set up and run **Apache Airflow** either locally or in **Cloud Composer**.
+4. Place the DAG Python file in your Airflow `dags/` folder.
+5. Trigger the DAG manually or wait for the scheduled run.
 
-csharp
-Copy
-Edit
-create_dataset
-      ↓
-[create_merchants_table, create_walmart_sales_table, create_target_table]
-      ↓
-     load_data
-      ↓
-merge_walmart_sales
-👨‍💻 Author
-Raushan Kumar
-Cloud Data Engineer | GCP | BigQuery | Airflow
+---
+
+## 🔐 IAM Roles Required
+
+To execute the DAG successfully, ensure your Airflow service account has the following IAM permissions:
+
+- `roles/bigquery.admin`
+- `roles/storage.objectViewer`
+- `roles/storage.objectCreator`
+- `roles/storage.admin` (recommended during development)
+
+---
+
+## 🧠 Example Merge Query Logic
+
+```sql
+MERGE `project.dataset.walmart_sales_tgt` T
+USING (
+    SELECT ...
+    FROM `project.dataset.walmart_sales_stage` S
+    LEFT JOIN `project.dataset.merchants_tb` M
+    ON S.merchant_id = M.merchant_id
+) S
+ON T.sale_id = S.sale_id
+WHEN MATCHED THEN
+  UPDATE SET ...
+WHEN NOT MATCHED THEN
+  INSERT (...);
+```
+
+This ensures that records are either updated or inserted without duplication.
+
+---
