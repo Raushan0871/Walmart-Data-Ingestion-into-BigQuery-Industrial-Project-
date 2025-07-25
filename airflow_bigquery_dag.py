@@ -2,8 +2,9 @@ from airflow import DAG
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryCreateEmptyDatasetOperator,
     BigQueryCreateEmptyTableOperator,
-    BigQueryExecuteQueryOperator,
+    BigQueryInsertJobOperator,
 )
+
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
 from airflow.utils.dates import days_ago
 from airflow.utils.task_group import TaskGroup
@@ -82,8 +83,8 @@ with DAG(
 
         gcs_to_bq_merchants = GCSToBigQueryOperator(
             task_id='gcs_to_bq_merchants',
-            bucket='bigquery_projects',
-            source_objects=['walmart-ingestions/walmart-merchant/'],
+            bucket='walmart-ingestions',
+            source_objects=['walmart-merchant/*.json'],
             destination_project_dataset_table='grounded-region-463501-n1.walmart_dwh.merchants_tb',
             write_disposition='WRITE_TRUNCATE',
             source_format='NEWLINE_DELIMITED_JSON',
@@ -91,57 +92,62 @@ with DAG(
 
         gcs_to_bq_walmart_sales = GCSToBigQueryOperator(
             task_id='gcs_to_bq_walmart_sales',
-            bucket='bigquery_projects',
-            source_objects=['walmart-ingestions/walmart-sales/'],
+            bucket='walmart-ingestions',
+            source_objects=['walmart-sales/*.json'],
             destination_project_dataset_table='grounded-region-463501-n1.walmart_dwh.walmart_sales_stage',
             write_disposition='WRITE_TRUNCATE',
             source_format='NEWLINE_DELIMITED_JSON',
         )
 
     # Task 4: Perform UPSERT using MERGE Query
-    merge_walmart_sales = BigQueryExecuteQueryOperator(
+    merge_walmart_sales = BigQueryInsertJobOperator(
         task_id='merge_walmart_sales',
-        sql="""
-            MERGE `grounded-region-463501-n1.walmart_dwh.walmart_sales_tgt` T
-            USING (
-              SELECT 
-                S.sale_id, 
-                S.sale_date, 
-                S.product_id, 
-                S.quantity_sold, 
-                S.total_sale_amount, 
-                S.merchant_id, 
-                M.merchant_name, 
-                M.merchant_category, 
-                M.merchant_country,
-                CURRENT_TIMESTAMP() as last_update
-              FROM `grounded-region-463501-n1.walmart_dwh.walmart_sales_stage` S
-              LEFT JOIN `grounded-region-463501-n1.walmart_dwh.merchants_tb` M
-              ON S.merchant_id = M.merchant_id
-            ) S
-            ON T.sale_id = S.sale_id
-            WHEN MATCHED THEN 
-              UPDATE SET
-                T.sale_date = S.sale_date,
-                T.product_id = S.product_id,
-                T.quantity_sold = S.quantity_sold,
-                T.total_sale_amount = S.total_sale_amount,
-                T.merchant_id = S.merchant_id,
-                T.merchant_name = S.merchant_name,
-                T.merchant_category = S.merchant_category,
-                T.merchant_country = S.merchant_country,
-                T.last_update = S.last_update
-            WHEN NOT MATCHED THEN 
-              INSERT (
-                sale_id, sale_date, product_id, quantity_sold, total_sale_amount, 
-                merchant_id, merchant_name, merchant_category, merchant_country, last_update
-              )
-              VALUES (
-                S.sale_id, S.sale_date, S.product_id, S.quantity_sold, S.total_sale_amount, 
-                S.merchant_id, S.merchant_name, S.merchant_category, S.merchant_country, S.last_update
-              );
-        """,
-        use_legacy_sql=False
+        configuration = {
+                "query" : {     
+                "query" : """
+                
+                        MERGE `grounded-region-463501-n1.walmart_dwh.walmart_sales_tgt` T
+                        USING (
+                        SELECT 
+                            S.sale_id, 
+                            S.sale_date, 
+                            S.product_id, 
+                            S.quantity_sold, 
+                            S.total_sale_amount, 
+                            S.merchant_id, 
+                            M.merchant_name, 
+                            M.merchant_category, 
+                            M.merchant_country,
+                            CURRENT_TIMESTAMP() as last_update
+                        FROM `grounded-region-463501-n1.walmart_dwh.walmart_sales_stage` S
+                        LEFT JOIN `grounded-region-463501-n1.walmart_dwh.merchants_tb` M
+                        ON S.merchant_id = M.merchant_id
+                        ) S
+                        ON T.sale_id = S.sale_id
+                        WHEN MATCHED THEN 
+                        UPDATE SET
+                            T.sale_date = S.sale_date,
+                            T.product_id = S.product_id,
+                            T.quantity_sold = S.quantity_sold,
+                            T.total_sale_amount = S.total_sale_amount,
+                            T.merchant_id = S.merchant_id,
+                            T.merchant_name = S.merchant_name,
+                            T.merchant_category = S.merchant_category,
+                            T.merchant_country = S.merchant_country,
+                            T.last_update = S.last_update
+                        WHEN NOT MATCHED THEN 
+                        INSERT (
+                            sale_id, sale_date, product_id, quantity_sold, total_sale_amount, 
+                            merchant_id, merchant_name, merchant_category, merchant_country, last_update
+                        )
+                        VALUES (
+                            S.sale_id, S.sale_date, S.product_id, S.quantity_sold, S.total_sale_amount, 
+                            S.merchant_id, S.merchant_name, S.merchant_category, S.merchant_country, S.last_update
+                        );
+                    """,
+              "use_legacy_sql": False
+                }
+            }
     )
 
     # Define Task Dependencies
